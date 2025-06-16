@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>음원 차트</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .chart-row.playing {
+      background-color: #f0f8ff; /* 재생 중 강조 */
+    }
+
+    .progress-bar {
+      height: 5px;
+      background: #ddd;
+      margin-top: 5px;
+      position: relative;
+      width: 100%;
+    }
+
+    .progress {
+      height: 5px;
+      background: #007bff;
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    .play-btn {
+      font-size: 18px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      width: 30px;
+    }
+  </style>
+</head>
+<body>
+<h2 style="text-align:center; margin-top: 20px;">T컬러링 스타일 차트</h2>
+<div class="chart-container">
+  {% for song in chart %}
+  <div class="chart-row" id="row-{{ loop.index }}">
+    <div class="rank">{{ song.rank }}</div>
+    <div class="thumb">
+      <!-- 이미지 -->
+      <img src="{{ url_for('static', filename='images/100/' + song.id + '.png') }}" alt="썸네일">
+    </div>
+    <div class="info">
+      <div class="title">{{ song.title }}</div>
+      <div class="artist">{{ song.artist }}</div>
+      <div class="time-left" id="time-left-{{ loop.index }}"></div>
+      <div class="progress-bar"><div class="progress" id="progress-{{ loop.index }}"></div></div>
+    </div>
+    <div class="actions">
+      <!-- 오디오 -->
+      <audio id="audio{{ loop.index }}" src="{{ url_for('static', filename='audio/100/' + song.id + '.m4a') }}"></audio>
+      <button class="play-btn" id="play-btn-{{ loop.index }}" onclick="togglePlay({{ loop.index }})">▶</button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+  let currentIndex = null;
+  const intervals = {};
+
+  function togglePlay(index) {
+    const audio = document.getElementById(`audio${index}`);
+    const timeLeftDisplay = document.getElementById(`time-left-${index}`);
+    const progressBar = document.getElementById(`progress-${index}`);
+    const playBtn = document.getElementById(`play-btn-${index}`);
+    const row = document.getElementById(`row-${index}`);
+
+    // 현재 다른 오디오 재생 중이면 모두 정지
+    if (currentIndex !== null && currentIndex !== index) {
+      stopAudio(currentIndex);
+    }
+
+    // 토글 재생/정지
+    if (audio.paused) {
+      audio.play();
+      playBtn.innerText = '⏸';
+      row.classList.add('playing');
+      currentIndex = index;
+
+      // 남은 시간 & 프로그레스바 업데이트
+      intervals[index] = setInterval(() => {
+        const remaining = Math.max(audio.duration - audio.currentTime, 0);
+        const minutes = Math.floor(remaining / 60);
+        const seconds = Math.floor(remaining % 60).toString().padStart(2, '0');
+        timeLeftDisplay.innerText = `남은 시간: ${minutes}:${seconds}`;
+
+        const percent = (audio.currentTime / audio.duration) * 100;
+        progressBar.style.width = percent + "%";
+
+        if (audio.ended) {
+          stopAudio(index);
+        }
+      }, 500);
+    } else {
+      // 일시 정지
+      audio.pause();
+      playBtn.innerText = '▶';
+      clearInterval(intervals[index]);
+    }
+  }
+
+  function stopAudio(index) {
+    const audio = document.getElementById(`audio${index}`);
+    const timeLeftDisplay = document.getElementById(`time-left-${index}`);
+    const progressBar = document.getElementById(`progress-${index}`);
+    const playBtn = document.getElementById(`play-btn-${index}`);
+    const row = document.getElementById(`row-${index}`);
+
+    audio.pause();
+    audio.currentTime = 0;
+    playBtn.innerText = '▶';
+    timeLeftDisplay.innerText = '';
+    progressBar.style.width = "0%";
+    clearInterval(intervals[index]);
+    row.classList.remove('playing');
+    currentIndex = null;
+  }
+</script>
+</body>
+</html>
