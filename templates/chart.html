@@ -2,123 +2,96 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>음원 차트</title>
+  <title>T컬러링 차트</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <style>
-    .chart-row.playing {
-      background-color: #f0f8ff; /* 재생 중 강조 */
-    }
-
-    .progress-bar {
-      height: 5px;
-      background: #ddd;
-      margin-top: 5px;
-      position: relative;
-      width: 100%;
-    }
-
-    .progress {
-      height: 5px;
-      background: #007bff;
-      width: 0%;
-      transition: width 0.3s;
-    }
-
-    .play-btn {
-      font-size: 18px;
-      border: none;
-      background: none;
-      cursor: pointer;
-      width: 30px;
-    }
-  </style>
 </head>
 <body>
-<h2 style="text-align:center; margin-top: 20px;">T컬러링 스타일 차트</h2>
-<div class="chart-container">
-  {% for song in chart %}
-  <div class="chart-row" id="row-{{ loop.index }}">
-    <div class="rank">{{ song.rank }}</div>
-    <div class="thumb">
-      <!-- 이미지 -->
-      <img src="{{ url_for('static', filename='images/100/' + song.id + '.png') }}" alt="썸네일">
-    </div>
-    <div class="info">
-      <div class="title">{{ song.title }}</div>
-      <div class="artist">{{ song.artist }}</div>
-      <div class="time-left" id="time-left-{{ loop.index }}"></div>
-      <div class="progress-bar"><div class="progress" id="progress-{{ loop.index }}"></div></div>
-    </div>
-    <div class="actions">
-      <!-- 오디오 -->
-      <audio id="audio{{ loop.index }}" src="{{ url_for('static', filename='audio/100/' + song.id + '.m4a') }}"></audio>
-      <button class="play-btn" id="play-btn-{{ loop.index }}" onclick="togglePlay({{ loop.index }})">▶</button>
-    </div>
+<div class="chart-wrapper">
+  <div class="chart-header">
+    <span class="back-btn"></span>
+    <span class="title">T컬러링 차트</span>
+    <span class="search-btn"></span>
   </div>
-  {% endfor %}
+
+  <div class="song-list">
+    {% for song in songs %}
+    <div class="song-row">
+      <div class="rank-box">
+        <span class="rank">{{ song.rank }}</span>
+      </div>
+      <div class="thumb">
+        <img src="{{ song.thumbnail }}" alt="썸네일">
+      </div>
+      <div class="song-info">
+        <div class="song-title">{{ song.title }}</div>
+        <div class="song-artist">{{ song.artist }}</div>
+      </div>
+      <div class="play-box">
+        <button class="play-btn" onclick="togglePlay(this, '{{ song.audio }}')">▶</button>
+        <span class="time">00:00</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
 </div>
-
 <script>
-  let currentIndex = null;
-  const intervals = {};
+  let currentAudio = null;
+  let currentBtn = null;
+  let timeUpdater = null;
 
-  function togglePlay(index) {
-    const audio = document.getElementById(`audio${index}`);
-    const timeLeftDisplay = document.getElementById(`time-left-${index}`);
-    const progressBar = document.getElementById(`progress-${index}`);
-    const playBtn = document.getElementById(`play-btn-${index}`);
-    const row = document.getElementById(`row-${index}`);
+  function togglePlay(btn, audioSrc) {
+    const timeSpan = btn.nextElementSibling;
 
-    // 현재 다른 오디오 재생 중이면 모두 정지
-    if (currentIndex !== null && currentIndex !== index) {
-      stopAudio(currentIndex);
+    // 같은 오디오 버튼을 다시 눌렀을 때
+    if (currentAudio && currentAudio.src === new Audio(audioSrc).src) {
+      if (currentAudio.paused) {
+        currentAudio.play();
+        btn.textContent = '⏸';  // 플레이 중이면 일시정지 버튼
+        startTimer(currentAudio, timeSpan);
+      } else {
+        currentAudio.pause();
+        btn.textContent = '▶';  // 정지되면 재생 버튼으로
+        clearInterval(timeUpdater);
+      }
+      return;
     }
 
-    // 토글 재생/정지
-    if (audio.paused) {
-      audio.play();
-      playBtn.innerText = '⏸';
-      row.classList.add('playing');
-      currentIndex = index;
-
-      // 남은 시간 & 프로그레스바 업데이트
-      intervals[index] = setInterval(() => {
-        const remaining = Math.max(audio.duration - audio.currentTime, 0);
-        const minutes = Math.floor(remaining / 60);
-        const seconds = Math.floor(remaining % 60).toString().padStart(2, '0');
-        timeLeftDisplay.innerText = `남은 시간: ${minutes}:${seconds}`;
-
-        const percent = (audio.currentTime / audio.duration) * 100;
-        progressBar.style.width = percent + "%";
-
-        if (audio.ended) {
-          stopAudio(index);
-        }
-      }, 500);
-    } else {
-      // 일시 정지
-      audio.pause();
-      playBtn.innerText = '▶';
-      clearInterval(intervals[index]);
+    // 다른 곡이 재생 중이면 멈추기
+    if (currentAudio) {
+      currentAudio.pause();
+      clearInterval(timeUpdater);
+      if (currentBtn) {
+        currentBtn.textContent = '▶';
+        currentBtn.nextElementSibling.textContent = '00:00';
+      }
     }
+
+    // 새 오디오로 재생
+    currentAudio = new Audio(audioSrc);
+    currentAudio.play();
+    btn.textContent = '⏸';
+    currentBtn = btn;
+
+    startTimer(currentAudio, timeSpan);
+
+    // 곡이 끝났을 때 버튼 초기화
+    currentAudio.onended = function() {
+      btn.textContent = '▶';
+      timeSpan.textContent = '00:00';
+      clearInterval(timeUpdater);
+    };
   }
 
-  function stopAudio(index) {
-    const audio = document.getElementById(`audio${index}`);
-    const timeLeftDisplay = document.getElementById(`time-left-${index}`);
-    const progressBar = document.getElementById(`progress-${index}`);
-    const playBtn = document.getElementById(`play-btn-${index}`);
-    const row = document.getElementById(`row-${index}`);
-
-    audio.pause();
-    audio.currentTime = 0;
-    playBtn.innerText = '▶';
-    timeLeftDisplay.innerText = '';
-    progressBar.style.width = "0%";
-    clearInterval(intervals[index]);
-    row.classList.remove('playing');
-    currentIndex = null;
+  function startTimer(audio, span) {
+    timeUpdater = setInterval(() => {
+      const m = Math.floor(audio.currentTime / 60).toString().padStart(2, '0');
+      const s = Math.floor(audio.currentTime % 60).toString().padStart(2, '0');
+      span.textContent = `${m}:${s}`;
+    }, 500);
   }
 </script>
+
+
+
 </body>
 </html>
