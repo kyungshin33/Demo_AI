@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>T컬러링 차트</title>
+
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -15,7 +16,7 @@
 
   <div class="song-list">
     {% for song in songs %}
-    <div class="song-row">
+    <div class="song-row" onclick="openModal({{ loop.index0 }})">
       <div class="rank-box">
         <span class="rank">{{ song.rank }}</span>
       </div>
@@ -27,18 +28,43 @@
         <div class="song-artist">{{ song.artist }}</div>
       </div>
       <div class="play-box">
-        <button class="play-btn" onclick="togglePlay(this, '{{ song.audio }}')">▶</button>
-        <span class="time">00:00</span>
+        <button class="play-btn" id = "playBtn" onclick="togglePlay(this, '{{ song.audio }}'); event.stopPropagation();">▶</button>
+        <span class="time" id="time">00:00</span>
       </div>
     </div>
     {% endfor %}
   </div>
 </div>
+
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal()">×</span>
+    <img id="modal-thumbnail" src="" alt="썸네일" class="modal-thumb">
+    <div class="modal-info">
+      <h3 id="modal-title">제목</h3>
+      <p id="modal-artist">가수</p>
+      <!--<div class="modal-tabs">
+        <button class="active">컬러링</button>
+        <button>벨소리</button>
+      </div>-->
+      <div class="modal-controls">
+        <!--<select>
+          <option>하이라이트</option>
+          <option>1절</option>
+          <option>후렴</option>
+        </select>-->
+        <button id="modal-play-btn">▶</button>
+        <span class="modal-time">00:00</span>
+      </div>
+      <button class="buy-btn">구매하기</button>
+    </div>
+  </div>
+</div>
+
 <script>
   let currentAudio = null;
   let currentBtn = null;
   let timeUpdater = null;
-
   function togglePlay(btn, audioSrc) {
     const timeSpan = btn.nextElementSibling;
 
@@ -51,6 +77,8 @@
       } else {
         currentAudio.pause();
         btn.textContent = '▶';  // 정지되면 재생 버튼으로
+        currentAudio.currentTime = 0;
+        timeSpan.textContent = '00:00';  // ⏸ 시 시간 초기화
         clearInterval(timeUpdater);
       }
       return;
@@ -89,6 +117,79 @@
       span.textContent = `${m}:${s}`;
     }, 500);
   }
+
+
+  const songData = {{ songs|tojson }};
+  let modalAudio = null;
+  let modalTimer = null;
+
+  function openModal(index) {
+    const song = songData[index];
+    document.getElementById("modal-title").innerText = song.title;
+    document.getElementById("modal-artist").innerText = song.artist;
+    document.getElementById("modal-thumbnail").src = song.thumbnail;
+    if(!currentAudio.paused) {
+      console.log("aaa")
+      currentAudio.pause();
+      document.getElementById('playBtn').textContent = '▶';  // 정지되면 재생 버튼으로
+      currentAudio.currentTime = 0;
+      document.getElementById('time').textContent = '00:00';  // ⏸ 시 시간 초기화
+      clearInterval(timeUpdater);
+    }
+    const modal = document.getElementById("modal");
+    modal.classList.add("show");
+
+    const playBtn = document.getElementById("modal-play-btn");
+    const timeSpan = document.querySelector(".modal-time");
+
+    playBtn.textContent = '▶';
+    timeSpan.textContent = "00:00";
+
+    if (modalAudio) {
+      modalAudio.pause();
+      clearInterval(modalTimer);
+    }
+
+    modalAudio = new Audio(song.audio);
+
+    playBtn.onclick = function() {
+      if (modalAudio.paused) {
+        modalAudio.play();
+        playBtn.textContent = '⏸';
+        modalTimer = setInterval(() => {
+          const m = String(Math.floor(modalAudio.currentTime / 60)).padStart(2, '0');
+          const s = String(Math.floor(modalAudio.currentTime % 60)).padStart(2, '0');
+          timeSpan.textContent = `${m}:${s}`;
+        }, 500);
+      } else {
+        modalAudio.pause();
+        playBtn.textContent = '▶';
+        clearInterval(modalTimer);
+      }
+    };
+
+    modalAudio.onended = function() {
+      playBtn.textContent = '▶';
+      timeSpan.textContent = "00:00";
+      clearInterval(modalTimer);
+    };
+  }
+
+  function closeModal() {
+    const modal = document.getElementById("modal");
+    modal.classList.remove("show");
+    if (modalAudio) {
+      modalAudio.pause();
+      modalAudio.currentTime = 0;
+      clearInterval(modalTimer);
+    }
+  }
+  window.onclick = function(event) {
+    const modal = document.getElementById("modal");
+    if (event.target === modal) {
+      closeModal();
+    }
+  };
 </script>
 
 

@@ -15,7 +15,7 @@ def chart():
     songs = []
     for idx, audio_file in enumerate(audio_files):
         title = os.path.splitext(audio_file)[0]
-        artist = "가수 이름"  # 필요시 mutagen 등으로 추출 가능
+        artist = "unknown"  # 필요시 mutagen 등으로 추출 가능
 
         # 이미지 파일이 부족한 경우를 대비해 조건 체크
         image_file = image_files[idx] if idx < len(image_files) else 'default.png'
